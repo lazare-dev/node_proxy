@@ -9,10 +9,10 @@ const fetch = require("node-fetch"); // if Node < 18
 
 const app = express();
 
-// 1) Enable CORS for all origins (or specify your GHL domain)
-app.use(cors());
-// If you want to restrict to GHL domain only, do:
+// 1) Enable CORS so GHL domain can call it
+// If you want to restrict to your GHL domain, do:
 // app.use(cors({ origin: "https://your-subdomain.gohighlevelpages.com" }));
+app.use(cors());
 
 app.use(express.json());
 
@@ -38,18 +38,21 @@ const DEFAULT_GENERATION_PARAMS = {
 
 // 5) Random potato facts for ephemeral dryness
 const POTATO_FACTS = [
-  "Potatoes were the first vegetable grown in space.",
+  "Potatoes were the first vegetable grown in space. Impressive, right?",
   "A raw potato can clean a foggy mirror if rubbed across the surface.",
-  "Potatoes can absorb and reflect Wi-Fi signals—freeloaders, indeed.",
+  "Potatoes can absorb and reflect Wi-Fi signals—lazy spuds, if you ask me.",
   "The word 'potato' comes from the Spanish 'patata'.",
   "Purple potatoes contain the same antioxidant as blueberries.",
-  "A potato once powered a small digital clock—shocking, right?",
+  "A potato once powered a small digital clock—shocking, I know.",
   "In the 1840s, potato blight caused a major famine in Ireland.",
-  "China is the world's largest producer of potatoes.",
-  "There's a potato museum in Prince Edward Island, Canada."
+  "China is the world's largest producer of potatoes. Mass spud production!",
+  "There's a potato museum in Prince Edward Island, Canada—thrilling stuff."
 ];
 
-// 6) If we need a dynamic comedic reply, we call Falcon
+/**
+ * callFalcon: If we need a dynamic comedic reply from Todd, we build a prompt
+ * with TODD_INSTRUCTIONS + user text, then call Falcon.
+ */
 async function callFalcon(userText) {
   const prompt = `${TODD_INSTRUCTIONS}\n${userText}`;
 
@@ -75,13 +78,15 @@ async function callFalcon(userText) {
 }
 
 /**
- * getToddReply: ephemeral logic for dryness, pledge, potato portrait
- * If none matches, returns null => we'll call Falcon
+ * getToddReply: ephemeral logic for dryness.
+ *  - If empty or "start": Todd's greeting
+ *  - If "yes"/"no": pledge logic
+ *  - If "make me a potato": ephemeral portrait
+ *  - Otherwise => null => we call Falcon
  */
 function getToddReply(userInput) {
   const text = userInput.toLowerCase().trim();
 
-  // If empty or "start", Todd greeting
   if (!text || text === "start") {
     return (
       "Hey. I'm Todd, your ever-so-dry potato.\n" +
@@ -91,7 +96,6 @@ function getToddReply(userInput) {
     );
   }
 
-  // yes/no => pledge logic
   if (text.includes("yes")) {
     return "Oh? what a spud—always so eager.";
   }
@@ -99,7 +103,6 @@ function getToddReply(userInput) {
     return "[potato pledge form link]. I'd roll my eyes if I had any.";
   }
 
-  // "make me a potato"
   if (text.includes("make me a potato")) {
     return (
       "Alright, let's do this. " +
@@ -108,11 +111,13 @@ function getToddReply(userInput) {
     );
   }
 
-  // Otherwise => return null => call Falcon
+  // Otherwise => call Falcon
   return null;
 }
 
-// Merges Falcon's reply with a random potato fact
+/**
+ * mergeWithRandomFact: append a random potato fact to Falcon's reply.
+ */
 function mergeWithRandomFact(falconReply) {
   const fact = POTATO_FACTS[Math.floor(Math.random() * POTATO_FACTS.length)];
   return `${falconReply}\n\nSpud Fact: ${fact}`;
@@ -122,16 +127,15 @@ function mergeWithRandomFact(falconReply) {
 app.post("/api/chat", async (req, res) => {
   try {
     const userInput = req.body.userMessage || "";
+    // Check ephemeral logic first
     const immediateReply = getToddReply(userInput);
 
     if (immediateReply !== null) {
-      // ephemeral dryness
       return res.json({ response: immediateReply });
     }
 
     // Otherwise, call Falcon
     const falconReply = await callFalcon(userInput);
-    // Append a random fact for comedic dryness
     const finalReply = mergeWithRandomFact(falconReply);
 
     res.json({ response: finalReply });
