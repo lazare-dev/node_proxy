@@ -1,0 +1,15 @@
+{
+    "name": "potato-proxy",
+    "version": "1.0.0",
+    "description": "A simple Node.js proxy for GPT calls",
+    "main": "server.js",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "dependencies": {
+      "express": "^4.18.2",
+      "node-fetch": "^2.6.9", 
+      "cors": "^2.8.5"
+    }
+  }
+  
