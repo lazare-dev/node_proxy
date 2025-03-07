@@ -1,7 +1,7 @@
 {
   "name": "potato-bot-backend",
   "version": "1.0.0",
-  "description": "Node-based Potato Bot with ephemeral dryness",
+  "description": "Node-based Potato Bot for GoHighLevel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
