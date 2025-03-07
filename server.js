@@ -10,7 +10,7 @@ const fetch = require("node-fetch"); // if Node < 18
 const app = express();
 
 // 1) Enable CORS so GHL domain can call it
-// If you want to restrict to your GHL domain, do:
+// If you want to restrict to a specific domain, do:
 // app.use(cors({ origin: "https://your-subdomain.gohighlevelpages.com" }));
 app.use(cors());
 
@@ -50,8 +50,8 @@ const POTATO_FACTS = [
 ];
 
 /**
- * callFalcon: If we need a dynamic comedic reply from Todd, we build a prompt
- * with TODD_INSTRUCTIONS + user text, then call Falcon.
+ * callFalcon: If we need a dynamic comedic reply from Todd, 
+ * we build a prompt with TODD_INSTRUCTIONS + user text, then call Falcon.
  */
 async function callFalcon(userText) {
   const prompt = `${TODD_INSTRUCTIONS}\n${userText}`;
@@ -87,6 +87,7 @@ async function callFalcon(userText) {
 function getToddReply(userInput) {
   const text = userInput.toLowerCase().trim();
 
+  // If empty or "start", ephemeral greeting
   if (!text || text === "start") {
     return (
       "Hey. I'm Todd, your ever-so-dry potato.\n" +
@@ -96,6 +97,7 @@ function getToddReply(userInput) {
     );
   }
 
+  // yes/no => pledge logic
   if (text.includes("yes")) {
     return "Oh? what a spud—always so eager.";
   }
@@ -103,6 +105,7 @@ function getToddReply(userInput) {
     return "[potato pledge form link]. I'd roll my eyes if I had any.";
   }
 
+  // "make me a potato"
   if (text.includes("make me a potato")) {
     return (
       "Alright, let's do this. " +
