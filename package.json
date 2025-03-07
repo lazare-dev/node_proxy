@@ -1,7 +1,7 @@
 {
-  "name": "node-proxy-potato",
+  "name": "potato-bot-backend",
   "version": "1.0.0",
-  "description": "A Node.js proxy for Falcon-based Potato Bot",
+  "description": "Node-based Potato Bot with ephemeral dryness",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
