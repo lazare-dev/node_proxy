@@ -1,7 +1,7 @@
 {
   "name": "potato-bot-backend",
   "version": "1.0.0",
-  "description": "Node-based Potato Bot for local testing or GHL",
+  "description": "Node-based Potato Bot with ephemeral logic and images",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
