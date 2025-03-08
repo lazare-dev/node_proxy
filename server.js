@@ -3,7 +3,7 @@
  * Node.js Express server for ephemeral Potato Bot logic.
  * - Removes weird lines referencing instructions or "User says:"
  * - Eliminates "You mention weird potato facts occasionally."
- * - Ensures Todd doesn't repeat user text
+ * - Ensures Todd doesn't repeat user text or internal instructions
  **********************************************************/
 const express = require("express");
 const cors = require("cors");
@@ -161,7 +161,6 @@ const POTATO_FACTS = [
   " Potatoes were once considered an aphrodisiac in 16th-century Europe, though this claim lacked scientific basis."
 ];
 
-
 /**
  * callFalcon: calls Falcon-7B-Instruct with instructions + user text
  */
@@ -194,16 +193,20 @@ async function callFalcon(userText) {
 
 /**
  * cleanFalconReply: remove lines referencing instructions, "User says:", etc.
+ * This version uses regex to strip out any internal instructions or guideline text.
  */
 function cleanFalconReply(rawText) {
   return rawText
-    // Remove references to instructions
+    // Remove specific instruction references
     .replace(/You are Todd.*(\n)?/gi, "")
     .replace(/Do NOT.*(\n)?/gi, "")
     .replace(/User input:.*(\n)?/gi, "")
     .replace(/Respond as Todd the potato.*/gi, "")
-    // If it tries to echo the user text
-    .replace(/"[^"]*"?/g, "") // remove quotes lines 
+    // Remove entire instructions block if it appears:
+    .replace(/Your style:([\s\S]*?)Additional guidelines:/gi, "")
+    .replace(/Additional guidelines:([\s\S]*)/gi, "")
+    // Remove any lingering quoted strings (echoed user input)
+    .replace(/"[^"]*"?/g, "")
     .trim();
 }
 
@@ -272,20 +275,11 @@ function finalizePotatoPortrait() {
 }
 
 /**
- * ephemeralLogic: single-step ephemeral triggers (start, yes/no, etc.)
+ * ephemeralLogic: single-step ephemeral triggers (yes/no, multi-step, etc.)
+ * Removed the branch for empty or "start" input.
  */
 function ephemeralLogic(userInput) {
   const text = userInput.toLowerCase().trim();
-
-  // If empty or "start"
-  if (!text || text === "start") {
-    return (
-      "Hey. I'm Todd, your ever-so-dry potato.\n" +
-      "Fun fact: potatoes are basically the underachievers of the vegetable world.\n" +
-      "If you want your picture drawn as a potato, just say 'make me a potato'.\n" +
-      "Also, have you taken the potato pledge?"
-    );
-  }
 
   // yes/no => pledge
   if (text.includes("yes")) {
