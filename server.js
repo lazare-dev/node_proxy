@@ -2,8 +2,8 @@
  * server.js
  * Node.js Express server for ephemeral Potato Bot logic.
  * - Does not echo user input or internal instructions.
- * - Handles "start" by returning a concise intro message.
- * - Supports multi-step portrait flow triggered by picture commands.
+ * - Handles "start" by returning a concise, dry intro message.
+ * - Supports a multi-step portrait flow triggered by picture commands.
  * - Uses inclusive gender detection for custom portraits.
  **********************************************************/
 const express = require("express");
@@ -209,7 +209,7 @@ function cleanFalconReply(rawText) {
   });
   // Remove any extraneous "start"
   cleanedText = cleanedText.replace(/\bstart\b/gi, "");
-  // Also remove any lines starting with "Do not include" or "Your output:"
+  // Remove any lines that start with unwanted phrases (if any)
   cleanedText = cleanedText
     .split('\n')
     .filter(line => {
@@ -234,11 +234,15 @@ let ephemeralState = {
   answers: {}
 };
 
+// Expanded multi-step portrait questions (7 questions)
 const potatoQuestions = [
   { key: "feminineOrMasculine", text: "Would you describe yourself as more feminine or masculine?" },
   { key: "hairColor", text: "What's your hair color?" },
   { key: "eyeColor", text: "What's your eye color?" },
-  { key: "height", text: "What's your approximate height?" }
+  { key: "height", text: "What's your approximate height?" },
+  { key: "potatoPreference", text: "Do you prefer mashed, fried, or baked potatoes?" },
+  { key: "potatoRating", text: "On a scale from 1 to 10, how 'potato' are you?" },
+  { key: "extraDetails", text: "Any additional quirks you'd like to share?" }
 ];
 
 /**
@@ -271,7 +275,7 @@ function ephemeralFlowCheck(userInput) {
  * Uses inclusive gender detection and returns a single concise paragraph.
  */
 function finalizePotatoPortrait() {
-  const { feminineOrMasculine, hairColor, eyeColor, height } = ephemeralState.answers;
+  const { feminineOrMasculine, hairColor, eyeColor, height, potatoPreference, potatoRating, extraDetails } = ephemeralState.answers;
   let imageLink = "";
   if (feminineOrMasculine && /mascul|man|male|boy/i.test(feminineOrMasculine)) {
     imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5fc3d108845a2d88ee5.jpeg";
@@ -280,19 +284,26 @@ function finalizePotatoPortrait() {
   } else {
     imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5f6c6d47c54b7d4691a.jpeg";
   }
-  return `Alright, I've got enough info: Style: ${feminineOrMasculine}. Hair color: ${hairColor}. Eye color: ${eyeColor}. Height: ${height}. Here's your custom potato portrait! <br> <img src='${imageLink}' alt='Custom Potato' style='max-width:200px;'>`;
+  return `Alright, I've got enough info: 
+Style: ${feminineOrMasculine}. 
+Hair color: ${hairColor}. 
+Eye color: ${eyeColor}. 
+Height: ${height}. 
+Potato Preference: ${potatoPreference}. 
+Potato Rating: ${potatoRating}. 
+Extra Details: ${extraDetails}. 
+Here's your custom potato portrait! <br> <img src='${imageLink}' alt='Custom Potato' style='max-width:200px;'>`;
 }
 
 /**
  * ephemeralLogic: handles initial and multi-step triggers.
- * If the input is empty or "start", it returns an intro message that asks:
- * "Have you taken the potato pledge? (yes/no)"
+ * If the input is empty or "start", it returns an intro message.
  */
 function ephemeralLogic(userInput) {
   let text = userInput.trim();
   if (text === "" || text.toLowerCase() === "start") {
     const fact = POTATO_FACTS[Math.floor(Math.random() * POTATO_FACTS.length)];
-    return `Hey, I'm Todd. To get your picture drawn as a potato, just say "make me a potato".\n\nSpud Fact: ${fact}\n\nHave you taken the potato pledge? (yes/no)`;
+    return `Hey, I'm Todd. If you want your picture drawn as a potato, just say "make me a potato".\n\nSpud Fact: ${fact}\n\nHave you taken the potato pledge? (yes/no)`;
   }
   if (/^(yes|no)$/i.test(text)) {
     if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
