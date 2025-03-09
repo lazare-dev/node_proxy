@@ -264,11 +264,15 @@ function ephemeralFlowCheck(userInput) {
 
 function finalizePotatoPortrait() {
   const { feminineOrMasculine, hairColor, eyeColor, height } = ephemeralState.answers;
-  let imagePath = "generic_potato.jpg";
+  // Use the provided full URLs for the images:
+  let imageLink = "";
   if (feminineOrMasculine && feminineOrMasculine.toLowerCase().includes("feminine")) {
-    imagePath = "female_spud.jpg";
+    imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5f6c6d47c54b7d4691a.jpeg";
   } else if (feminineOrMasculine && feminineOrMasculine.toLowerCase().includes("masculine")) {
-    imagePath = "male_spud.jpg";
+    imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5fc3d108845a2d88ee5.jpeg";
+  } else {
+    // Default to female picture if no clear preference is provided
+    imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5f6c6d47c54b7d4691a.jpeg";
   }
 
   return (
@@ -278,7 +282,7 @@ function finalizePotatoPortrait() {
     `- Eye color: ${eyeColor}\n` +
     `- Height: ${height}\n\n` +
     `Here's your custom potato portrait!<br>` +
-    `<img src='${BASE_IMAGE_URL}/${imagePath}' alt='Custom Potato' style='max-width:200px;'>`
+    `<img src='${imageLink}' alt='Custom Potato' style='max-width:200px;'>`
   );
 }
 
