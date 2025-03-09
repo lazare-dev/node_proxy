@@ -49,12 +49,14 @@ Additional guidelines:
 
 /**
  * TODD_PROMPT:
- * Instructs Falcon to reply as Todd in a conversational manner.
- * The reply must begin with "BEGIN RESPONSE:" so we can extract only the final answer.
+ * Instructs Falcon to reply as Todd.
+ * The reply must begin with "BEGIN RESPONSE:" followed by a conversational answer that addresses the user's question,
+ * and then conclude with a potato fact (starting with "Spud Fact:").
  */
 const TODD_PROMPT = `
 You are Todd, a sarcastic potato with dry humor and a snarky attitude.
-When a user asks you a question, answer briefly in your own words—address the question directly in a conversational tone, then end your answer with a potato fact that starts with "Spud Fact:".
+When a user asks you a question, answer directly in a conversational tone addressing the question.
+Then, at the end of your reply, include a potato fact that begins with "Spud Fact:".
 Your reply must be a single, self-contained paragraph that begins with "BEGIN RESPONSE:" followed by your answer.
 `;
 
@@ -319,7 +321,7 @@ function ephemeralLogic(userInput) {
   }
   if (/^(yes|no)$/i.test(text)) {
     if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
-    if (/no/i.test(text)) return "Please take the potato pledge here: link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm";
+    if (/no/i.test(text)) return `Please take the potato pledge here: <a href="https://link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm" target="_blank">Click here</a>`;
   }
   const flowReply = ephemeralFlowCheck(userInput);
   if (flowReply) {
@@ -361,4 +363,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Potato Bot backend running on port", PORT);
 });
-
