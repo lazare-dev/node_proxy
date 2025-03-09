@@ -198,6 +198,7 @@ function cleanFalconReply(rawText) {
     .replace(/Respond as Todd.*/gi, "")
     .replace(/"[^"]*"?/g, "")
     .replace(/- You -/gi, "");
+  // Remove any instruction lines from TODD_INSTRUCTIONS
   const instructionLines = TODD_INSTRUCTIONS.split('\n')
     .map(line => line.trim())
     .filter(Boolean);
@@ -206,7 +207,16 @@ function cleanFalconReply(rawText) {
     const regex = new RegExp(escapedLine, 'gi');
     cleanedText = cleanedText.replace(regex, "");
   });
+  // Remove any extraneous "start"
   cleanedText = cleanedText.replace(/\bstart\b/gi, "");
+  // Also remove any lines starting with "Do not include" or "Your output:"
+  cleanedText = cleanedText
+    .split('\n')
+    .filter(line => {
+      const lower = line.trim().toLowerCase();
+      return !lower.startsWith("do not include") && !lower.startsWith("your output:");
+    })
+    .join('\n');
   return cleanedText.trim();
 }
 
@@ -275,18 +285,18 @@ function finalizePotatoPortrait() {
 
 /**
  * ephemeralLogic: handles initial and multi-step triggers.
- * If the input is empty or "start", it returns a simple intro message that also asks
- * "Have you taken the potato pledge?" followed by a random spud fact.
+ * If the input is empty or "start", it returns an intro message that asks:
+ * "Have you taken the potato pledge? (yes/no)"
  */
 function ephemeralLogic(userInput) {
   let text = userInput.trim();
   if (text === "" || text.toLowerCase() === "start") {
     const fact = POTATO_FACTS[Math.floor(Math.random() * POTATO_FACTS.length)];
-    return `Hey, I'm Todd. To get your picture drawn as a potato, just say "make me a potato". Also, have you taken the potato pledge?\n\nSpud Fact: ${fact}`;
+    return `Hey, I'm Todd. To get your picture drawn as a potato, just say "make me a potato".\n\nSpud Fact: ${fact}\n\nHave you taken the potato pledge? (yes/no)`;
   }
   if (/^(yes|no)$/i.test(text)) {
     if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
-    if (/no/i.test(text)) return "[potato pledge link]. I'd roll my eyes if I had any.";
+    if (/no/i.test(text)) return "Please take the potato pledge here: [POTATO_PLEDGE_FORM_LINK]";
   }
   const flowReply = ephemeralFlowCheck(userInput);
   if (flowReply) {
