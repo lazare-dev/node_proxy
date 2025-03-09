@@ -1,8 +1,9 @@
 /***********************************************************
  * server.js
  * Node.js Express server for ephemeral Potato Bot logic.
- * - Removes echoes of user text and internal instructions.
- * - Ensures Todd responds strictly within the potato guidelines.
+ * - Prevents echoing user text or internal instructions.
+ * - Uses expanded picture-command variants.
+ * - Introduces Todd when input is empty or "start".
  **********************************************************/
 const express = require("express");
 const cors = require("cors");
@@ -17,7 +18,7 @@ app.use(express.static("public"));
 app.use(cors());
 app.use(express.json());
 
-// (Note: BASE_IMAGE_URL is no longer used for portraits)
+// BASE_IMAGE_URL remains for non-portrait uses (portraits use full URLs below)
 const BASE_IMAGE_URL = "https://node-proxy-potato.onrender.com";
 
 // Hugging Face token & Falcon model
@@ -26,7 +27,8 @@ const HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b
 
 /**
  * Todd's internal instructions.
- * These ask for a single, concise paragraph response without echoing the user.
+ * They instruct Falcon to respond in a single concise paragraph,
+ * without echoing user input or including internal guidelines.
  */
 const TODD_INSTRUCTIONS = `
 You are Todd, a sarcastic potato with dry humor.
@@ -161,11 +163,10 @@ const POTATO_FACTS = [
 ];
 
 /**
- * callFalcon: calls Falcon-7B-Instruct with instructions + user text.
+ * callFalcon: calls Falcon-7B-Instruct with Todd's instructions and user input.
  */
 async function callFalcon(userText) {
   const prompt = `${TODD_INSTRUCTIONS}\nUser input: "${userText}"\nRespond as Todd the potato.`;
-
   const response = await fetch(HF_API_URL, {
     method: "POST",
     headers: {
@@ -177,12 +178,10 @@ async function callFalcon(userText) {
       parameters: DEFAULT_GENERATION_PARAMS
     })
   });
-
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Falcon API Error: ${errorText}`);
   }
-
   const data = await response.json();
   const rawReply = data[0]?.generated_text || "No response from Falcon.";
   return cleanFalconReply(rawReply);
@@ -200,7 +199,6 @@ function cleanFalconReply(rawText) {
     .replace(/Respond as Todd the potato.*/gi, "")
     .replace(/"[^"]*"?/g, "")
     .replace(/- You -/gi, "");
-
   const instructionLines = TODD_INSTRUCTIONS.split('\n')
     .map(line => line.trim())
     .filter(Boolean);
@@ -209,11 +207,19 @@ function cleanFalconReply(rawText) {
     const regex = new RegExp(escapedLine, 'gi');
     cleanedText = cleanedText.replace(regex, "");
   });
-
+  // Also remove any extraneous "start" text.
+  cleanedText = cleanedText.replace(/\bstart\b/gi, "");
   return cleanedText.trim();
 }
 
-// Global ephemeral state (for multi-step interactions)
+/**
+ * Helper: Determines if the input is a command for a potato portrait.
+ */
+function isPictureCommand(input) {
+  return /(?:make me a potato|draw me(?: as a potato)?|potato me|potatize me)/i.test(input);
+}
+
+// Global ephemeral state for multi-step interactions.
 let ephemeralState = {
   state: "idle",
   questionIndex: 0,
@@ -228,18 +234,16 @@ const potatoQuestions = [
 ];
 
 /**
- * ephemeralFlowCheck: handles the multi-step flow.
+ * ephemeralFlowCheck: handles the multi-step portrait creation flow.
  */
 function ephemeralFlowCheck(userInput) {
   const text = userInput.toLowerCase().trim();
-
-  if (ephemeralState.state === "idle" && text.includes("make me a potato")) {
+  if (ephemeralState.state === "idle" && isPictureCommand(text)) {
     ephemeralState.state = "askingPotato";
     ephemeralState.questionIndex = 0;
     ephemeralState.answers = {};
     return potatoQuestions[0].text;
   }
-
   if (ephemeralState.state === "askingPotato") {
     const currentQ = potatoQuestions[ephemeralState.questionIndex];
     ephemeralState.answers[currentQ.key] = userInput;
@@ -251,13 +255,12 @@ function ephemeralFlowCheck(userInput) {
       return finalizePotatoPortrait();
     }
   }
-
   return null;
 }
 
 /**
  * finalizePotatoPortrait: constructs the final portrait response.
- * It uses inclusive gender checks and returns a single concise paragraph.
+ * Uses inclusive gender detection and returns a concise paragraph.
  */
 function finalizePotatoPortrait() {
   const { feminineOrMasculine, hairColor, eyeColor, height } = ephemeralState.answers;
@@ -269,27 +272,22 @@ function finalizePotatoPortrait() {
   } else {
     imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5f6c6d47c54b7d4691a.jpeg";
   }
-
   return `Alright, I've got enough info: Style: ${feminineOrMasculine}. Hair color: ${hairColor}. Eye color: ${eyeColor}. Height: ${height}. Here's your custom potato portrait! <br> <img src='${imageLink}' alt='Custom Potato' style='max-width:200px;'>`;
 }
 
 /**
- * ephemeralLogic: handles single-step triggers.
- * If input is "start", it is replaced with an empty string.
+ * ephemeralLogic: handles initial and multi-step triggers.
+ * If the input is empty or "start", it returns an introduction message.
  */
 function ephemeralLogic(userInput) {
-  let text = userInput.toLowerCase().trim();
-  if (text === "start") {
-    return null; // Ignore "start"
+  let text = userInput.trim();
+  if (text === "" || text.toLowerCase() === "start") {
+    return "Hey, I'm Todd, your sarcastic potato. If you want your picture drawn as a potato, just say 'make me a potato', 'draw me', or similar.";
   }
-
-  if (text.includes("yes")) {
-    return "Oh? what a spud—always so eager.";
+  if (/^(yes|no)$/i.test(text)) {
+    if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
+    if (/no/i.test(text)) return "[potato pledge form link]. I'd roll my eyes if I had any.";
   }
-  if (text.includes("no")) {
-    return "[potato pledge form link]. I'd roll my eyes if I had any.";
-  }
-
   const flowReply = ephemeralFlowCheck(userInput);
   if (flowReply) {
     return flowReply;
@@ -312,12 +310,10 @@ app.post("/api/chat", async (req, res) => {
     if (userInput.toLowerCase() === "start") {
       userInput = "";
     }
-
     const ephemeralReply = ephemeralLogic(userInput);
     if (ephemeralReply !== null && ephemeralReply !== "") {
       return res.json({ response: ephemeralReply });
     }
-
     const falconReply = await callFalcon(userInput);
     const finalReply = mergeWithRandomFact(falconReply);
     res.json({ response: finalReply });
