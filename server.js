@@ -2,8 +2,8 @@
  * server.js
  * Node.js Express server for ephemeral Potato Bot logic.
  * - Prevents echoing of user text and internal instructions.
- * - Uses expanded picture-command variants.
- * - Introduces Todd with an intro message when input is empty or "start".
+ * - Uses expanded picture-command variants (internally).
+ * - Introduces Todd with a concise intro when input is empty or "start".
  * - Includes inclusive gender detection for custom portraits.
  **********************************************************/
 const express = require("express");
@@ -19,7 +19,7 @@ app.use(express.static("public"));
 app.use(cors());
 app.use(express.json());
 
-// BASE_IMAGE_URL (not used for portraits now)
+// BASE_IMAGE_URL is not used for portraits now.
 const BASE_IMAGE_URL = "https://node-proxy-potato.onrender.com";
 
 // Hugging Face token & Falcon model
@@ -29,7 +29,7 @@ const HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b
 /**
  * Todd's internal instructions.
  * These instruct Falcon to respond with a single, concise paragraph
- * without echoing user input or internal guidelines.
+ * without echoing the user's text or internal guidelines.
  */
 const TODD_INSTRUCTIONS = `
 You are Todd, a sarcastic potato with dry humor.
@@ -164,7 +164,7 @@ const POTATO_FACTS = [
 ];
 
 /**
- * callFalcon: calls Falcon with Todd's instructions and the user input.
+ * callFalcon: calls Falcon with Todd's instructions and user input.
  */
 async function callFalcon(userText) {
   const prompt = `${TODD_INSTRUCTIONS}\nUser input: "${userText}"\nRespond as Todd the potato.`;
@@ -208,13 +208,13 @@ function cleanFalconReply(rawText) {
     const regex = new RegExp(escapedLine, 'gi');
     cleanedText = cleanedText.replace(regex, "");
   });
-  // Also remove any extraneous "start" text.
+  // Remove any extraneous "start" text.
   cleanedText = cleanedText.replace(/\bstart\b/gi, "");
   return cleanedText.trim();
 }
 
 /**
- * isPictureCommand: returns true if the input matches one of the picture commands.
+ * isPictureCommand: returns true if the input matches a picture command.
  */
 function isPictureCommand(input) {
   return /(?:make me a potato|draw me(?: as a potato)?|potato me|potatize me)/i.test(input);
@@ -235,7 +235,7 @@ const potatoQuestions = [
 ];
 
 /**
- * ephemeralFlowCheck: handles the multi-step portrait creation flow.
+ * ephemeralFlowCheck: handles the multi-step portrait flow.
  */
 function ephemeralFlowCheck(userInput) {
   const text = userInput.toLowerCase().trim();
@@ -261,7 +261,7 @@ function ephemeralFlowCheck(userInput) {
 
 /**
  * finalizePotatoPortrait: constructs the final portrait response.
- * Uses inclusive gender detection and returns a single concise paragraph.
+ * Uses inclusive gender detection and returns a concise paragraph.
  */
 function finalizePotatoPortrait() {
   const { feminineOrMasculine, hairColor, eyeColor, height } = ephemeralState.answers;
@@ -278,12 +278,13 @@ function finalizePotatoPortrait() {
 
 /**
  * ephemeralLogic: handles initial and multi-step triggers.
- * If input is empty or "start", it returns an introduction message.
+ * If the input is empty or "start", it returns an intro message.
  */
 function ephemeralLogic(userInput) {
   let text = userInput.trim();
   if (text === "" || text.toLowerCase() === "start") {
-    return "Hey, I'm Todd, your sarcastic potato. If you want your picture drawn as a potato, just say 'make me a potato', 'draw me', or similar.";
+    const fact = POTATO_FACTS[Math.floor(Math.random() * POTATO_FACTS.length)];
+    return `Hey, I'm Todd, your sarcastic potato. If you want your picture drawn as a potato, just say "make me a potato".\n\nSpud Fact: ${fact}`;
   }
   if (/^(yes|no)$/i.test(text)) {
     if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
@@ -297,7 +298,7 @@ function ephemeralLogic(userInput) {
 }
 
 /**
- * mergeWithRandomFact: appends a random potato fact to the Falcon response.
+ * mergeWithRandomFact: appends a random potato fact to Falcon's response.
  */
 function mergeWithRandomFact(falconReply) {
   const fact = POTATO_FACTS[Math.floor(Math.random() * POTATO_FACTS.length)];
