@@ -1,9 +1,10 @@
 /***********************************************************
  * server.js
  * Node.js Express server for ephemeral Potato Bot logic.
- * - Prevents echoing user text or internal instructions.
+ * - Prevents echoing of user text and internal instructions.
  * - Uses expanded picture-command variants.
- * - Introduces Todd when input is empty or "start".
+ * - Introduces Todd with an intro message when input is empty or "start".
+ * - Includes inclusive gender detection for custom portraits.
  **********************************************************/
 const express = require("express");
 const cors = require("cors");
@@ -14,11 +15,11 @@ const app = express();
 // Serve static images from "public" folder if needed
 app.use(express.static("public"));
 
-// Enable CORS
+// Enable CORS (unchanged)
 app.use(cors());
 app.use(express.json());
 
-// BASE_IMAGE_URL remains for non-portrait uses (portraits use full URLs below)
+// BASE_IMAGE_URL (not used for portraits now)
 const BASE_IMAGE_URL = "https://node-proxy-potato.onrender.com";
 
 // Hugging Face token & Falcon model
@@ -27,8 +28,8 @@ const HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b
 
 /**
  * Todd's internal instructions.
- * They instruct Falcon to respond in a single concise paragraph,
- * without echoing user input or including internal guidelines.
+ * These instruct Falcon to respond with a single, concise paragraph
+ * without echoing user input or internal guidelines.
  */
 const TODD_INSTRUCTIONS = `
 You are Todd, a sarcastic potato with dry humor.
@@ -163,7 +164,7 @@ const POTATO_FACTS = [
 ];
 
 /**
- * callFalcon: calls Falcon-7B-Instruct with Todd's instructions and user input.
+ * callFalcon: calls Falcon with Todd's instructions and the user input.
  */
 async function callFalcon(userText) {
   const prompt = `${TODD_INSTRUCTIONS}\nUser input: "${userText}"\nRespond as Todd the potato.`;
@@ -213,7 +214,7 @@ function cleanFalconReply(rawText) {
 }
 
 /**
- * Helper: Determines if the input is a command for a potato portrait.
+ * isPictureCommand: returns true if the input matches one of the picture commands.
  */
 function isPictureCommand(input) {
   return /(?:make me a potato|draw me(?: as a potato)?|potato me|potatize me)/i.test(input);
@@ -260,7 +261,7 @@ function ephemeralFlowCheck(userInput) {
 
 /**
  * finalizePotatoPortrait: constructs the final portrait response.
- * Uses inclusive gender detection and returns a concise paragraph.
+ * Uses inclusive gender detection and returns a single concise paragraph.
  */
 function finalizePotatoPortrait() {
   const { feminineOrMasculine, hairColor, eyeColor, height } = ephemeralState.answers;
@@ -277,7 +278,7 @@ function finalizePotatoPortrait() {
 
 /**
  * ephemeralLogic: handles initial and multi-step triggers.
- * If the input is empty or "start", it returns an introduction message.
+ * If input is empty or "start", it returns an introduction message.
  */
 function ephemeralLogic(userInput) {
   let text = userInput.trim();
