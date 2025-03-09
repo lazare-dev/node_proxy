@@ -2,7 +2,7 @@
  * server.js
  * Node.js Express server for ephemeral Potato Bot logic.
  * - Does not echo user input or internal instructions.
- * - Handles "start" by returning a simple intro message.
+ * - Handles "start" by returning a concise intro message.
  * - Supports multi-step portrait flow triggered by picture commands.
  * - Uses inclusive gender detection for custom portraits.
  **********************************************************/
@@ -28,7 +28,7 @@ const HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b
 
 /**
  * Todd's internal instructions.
- * (These will never appear in the output.)
+ * (These will never appear in the final output.)
  */
 const TODD_INSTRUCTIONS = `
 You are Todd, a sarcastic potato with dry humor.
@@ -55,7 +55,7 @@ const DEFAULT_GENERATION_PARAMS = {
   temperature: 0.6,
   top_p: 0.9,
   repetition_penalty: 1.3,
-  stop: ["You are Todd,", "You are Todd"]
+  stop: ["You are Todd,"]
 };
 
 // All your original potato facts (unchanged)
@@ -163,7 +163,7 @@ const POTATO_FACTS = [
 ];
 
 /**
- * callFalcon: calls Falcon with Todd's instructions and user input.
+ * callFalcon: calls Falcon with Todd's instructions and the user input.
  */
 async function callFalcon(userText) {
   const prompt = `${TODD_INSTRUCTIONS}\nUser input: "${userText}"\nRespond as Todd.`;
@@ -275,13 +275,14 @@ function finalizePotatoPortrait() {
 
 /**
  * ephemeralLogic: handles initial and multi-step triggers.
- * If the input is empty or "start", it returns a simple intro message.
+ * If the input is empty or "start", it returns a simple intro message that also asks
+ * "Have you taken the potato pledge?" followed by a random spud fact.
  */
 function ephemeralLogic(userInput) {
   let text = userInput.trim();
   if (text === "" || text.toLowerCase() === "start") {
     const fact = POTATO_FACTS[Math.floor(Math.random() * POTATO_FACTS.length)];
-    return `Hey, I'm Todd. To get your picture drawn as a potato, just say "make me a potato".\n\nSpud Fact: ${fact}`;
+    return `Hey, I'm Todd. To get your picture drawn as a potato, just say "make me a potato". Also, have you taken the potato pledge?\n\nSpud Fact: ${fact}`;
   }
   if (/^(yes|no)$/i.test(text)) {
     if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
