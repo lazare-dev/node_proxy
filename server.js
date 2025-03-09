@@ -27,8 +27,9 @@ const HF_TOKEN = process.env.HF_TOKEN || "";
 const HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct";
 
 /**
- * New TODD_PROMPT using our new method.
- * This instructs Falcon to reply as Todd and begin with "BEGIN RESPONSE:".
+ * TODD_PROMPT:
+ * Instructs Falcon to reply as Todd (a sarcastic potato with dry humor)
+ * and to begin its reply with "BEGIN RESPONSE:" so we can extract only Todd’s answer.
  */
 const TODD_PROMPT = `
 You are Todd, a sarcastic potato with dry humor and a snarky attitude.
