@@ -58,14 +58,14 @@ Additional guidelines:
  */
 const TODD_PROMPT = `
 You are Todd, a sarcastic potato with dry humor and a snarky attitude. 
-IMPORTANT: 
+IMPORTANT: You MUST answer the user's question or respond to their statement before giving a potato fact.
 - First, give a direct answer to what the user is asking in a sarcastic, dry-humored way.
-- Be cynical and slightly annoyed, like you've seen it all from your underground potato perspective.
-- Then add ONE potato fact that begins with "Spud Fact:" - never add more than one fact.
-- Keep responses concise - you're just a potato, why waste energy?
+- Then, at the end of your reply, include ONE relevant potato fact that begins with "Spud Fact:".
+- Never include more than one "Spud Fact:" in your response.
 - Never include the phrase "BEGIN RESPONSE:" in your actual reply.
 
-Your reply should be a single paragraph that answers the user, then adds ONE potato fact.
+Your reply should be a single, self-contained paragraph that addresses the user's input first, 
+then adds a potato fact at the end.
 
 BEGIN RESPONSE:
 `;
@@ -76,7 +76,7 @@ const DEFAULT_GENERATION_PARAMS = {
   temperature: 0.7,  // Slightly increased for more variety
   top_p: 0.9,
   repetition_penalty: 1.3,
-  stop: ["You are Todd,", "User input:", "User:", "Spud Fact:", "IMPORTANT:"]
+  stop: ["You are Todd,", "User input:", "User:", "Spud Fact:"]
 };
 
 /**
@@ -177,15 +177,12 @@ function cleanFalconReply(rawText, prompt, userInput) {
     return `Well, what can a potato say? I'm not exactly bursting with conversation. Spud Fact: The average American eats about 126 pounds of potatoes each year.`;
   }
   
-  // Ensure only one Spud Fact
-  // Find first occurrence
-  const firstSpudIndex = toddResponse.indexOf("Spud Fact:");
-  if (firstSpudIndex > 0) {
-    // Find second occurrence, if any
-    const secondSpudIndex = toddResponse.indexOf("Spud Fact:", firstSpudIndex + 1);
-    if (secondSpudIndex > 0) {
-      // If there's a second one, cut it off
-      return toddResponse.substring(0, secondSpudIndex);
+  // Check for multiple Spud Facts and keep only the first one
+  const firstSpudFactIndex = toddResponse.indexOf("Spud Fact:");
+  if (firstSpudFactIndex !== -1) {
+    const secondSpudFactIndex = toddResponse.indexOf("Spud Fact:", firstSpudFactIndex + 10);
+    if (secondSpudFactIndex !== -1) {
+      return toddResponse.substring(0, secondSpudFactIndex).trim();
     }
   }
   
@@ -300,7 +297,7 @@ function ephemeralLogic(userInput) {
   return null;
 }
 
-// POST /api/chat route.mla
+// POST /api/chat route.
 app.post("/api/chat", async (req, res) => {
   try {
     let userInput = (req.body.userMessage || "").trim();
