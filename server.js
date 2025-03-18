@@ -217,7 +217,8 @@ function addRandomFact(response) {
  * Returns true if the input matches a picture command.
  */
 function isPictureCommand(input) {
-  return /(?:make me a potato|draw me(?: as a potato)?|potato me|potatize me)/i.test(input);
+  const text = input.toLowerCase().trim();
+  return /(?:make me a potato|draw me(?: as a potato)?|potato me|potatize me)/i.test(text);
 }
 
 // Global ephemeral state for multi-step portrait flow.
@@ -227,7 +228,7 @@ let ephemeralState = {
   answers: {}
 };
 
-// Expanded multi-step portrait questions (only 4 questions now)
+// Multi-step portrait questions
 const potatoQuestions = [
   { key: "feminineOrMasculine", text: "Would you describe yourself as more feminine or masculine? Not that I care much either way." },
   { key: "hairColor", text: "What's your hair color? Let me guess - not as earthy as mine." },
@@ -240,24 +241,30 @@ const potatoQuestions = [
  * Handles the multi-step portrait creation flow.
  */
 function ephemeralFlowCheck(userInput) {
-  const text = userInput.toLowerCase().trim();
-  if (ephemeralState.state === "idle" && isPictureCommand(text)) {
+  // Check if we're already in a portrait flow or if this is a new portrait command
+  if (ephemeralState.state === "idle" && isPictureCommand(userInput)) {
+    // Start the portrait flow
     ephemeralState.state = "askingPotato";
     ephemeralState.questionIndex = 0;
     ephemeralState.answers = {};
     return potatoQuestions[0].text;
-  }
-  if (ephemeralState.state === "askingPotato") {
+  } else if (ephemeralState.state === "askingPotato") {
+    // We're in the middle of a portrait flow, store the answer and move to next question
     const currentQ = potatoQuestions[ephemeralState.questionIndex];
     ephemeralState.answers[currentQ.key] = userInput;
     ephemeralState.questionIndex++;
+    
+    // Check if we have more questions
     if (ephemeralState.questionIndex < potatoQuestions.length) {
       return potatoQuestions[ephemeralState.questionIndex].text;
     } else {
-      ephemeralState.state = "idle";
+      // We've completed all questions, finalize the portrait
+      ephemeralState.state = "idle"; // Reset state
       return finalizePotatoPortrait();
     }
   }
+  
+  // Not in a portrait flow and not a portrait command
   return null;
 }
 
@@ -299,10 +306,14 @@ function ephemeralLogic(userInput) {
     if (/yes/i.test(text)) return "Look at you, all eager to pledge allegiance to a vegetable. I'm flattered, I guess. Now, what would you like to talk about? Keep it interesting—I've been underground for months.";
     if (/no/i.test(text)) return `Well, that's disappointing. Here I am, bearing my soul to you, and you can't even take a simple potato pledge. Fine, take it here if you ever change your mind: <a href="https://link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm" target="_blank">Click here</a>. Or don't. I'm just a potato, not your life coach.`;
   }
+  
+  // Check if this is part of the portrait flow
   const flowReply = ephemeralFlowCheck(userInput);
   if (flowReply) {
     return flowReply;
   }
+  
+  // Not a special command, let Falcon handle it
   return null;
 }
 
@@ -313,6 +324,8 @@ app.post("/api/chat", async (req, res) => {
     if (userInput.toLowerCase() === "start") {
       userInput = "";
     }
+    
+    // First check if we have an ephemeral reply (start, portrait flow, etc.)
     const ephemeralReply = ephemeralLogic(userInput);
     
     if (ephemeralReply !== null && ephemeralReply !== "") {
