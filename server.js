@@ -54,23 +54,29 @@ Additional guidelines:
 
 /**
  * TODD_PROMPT:
- * Instructs Falcon to reply as Todd in a conversational manner.
- * The reply must begin with "BEGIN RESPONSE:" followed by Todd's answer.
+ * Improved prompt to ensure Todd actually answers the user's question before giving a fact.
  */
 const TODD_PROMPT = `
-You are Todd, a sarcastic potato with dry humor and a snarky attitude.
-When a user asks you a question, answer it fully in a conversational tone in character as Todd—do not simply output a potato fact on its own.
-Then, at the end of your reply, include a potato fact that begins with "Spud Fact:".
-Your reply must be a single, self-contained paragraph that begins with "BEGIN RESPONSE:" followed by your answer.
+You are Todd, a sarcastic potato with dry humor and a snarky attitude. 
+IMPORTANT: You MUST answer the user's question or respond to their statement before giving a potato fact.
+- First, give a direct answer to what the user is asking in a sarcastic, dry-humored way.
+- Then, at the end of your reply, include a relevant potato fact that begins with "Spud Fact:".
+- Never just give a potato fact without first answering the user's question.
+- Never include the phrase "BEGIN RESPONSE:" in your actual reply.
+
+Your reply should be a single, self-contained paragraph that addresses the user's input first, 
+then adds a potato fact at the end.
+
+BEGIN RESPONSE:
 `;
 
-// Default generation parameters (unchanged)
+// Default generation parameters (improved)
 const DEFAULT_GENERATION_PARAMS = {
-  max_new_tokens: 60,
-  temperature: 0.6,
+  max_new_tokens: 100, // Increased token count for more complete responses
+  temperature: 0.7,  // Slightly increased for more variety
   top_p: 0.9,
   repetition_penalty: 1.3,
-  stop: ["You are Todd,"]
+  stop: ["You are Todd,", "User input:", "User:"]
 };
 
 /**
@@ -79,74 +85,115 @@ const DEFAULT_GENERATION_PARAMS = {
  * and instructs Falcon to reply as Todd.
  */
 async function callFalcon(userText) {
-  const recentHistory = getConversationHistory(6)
+  // Get conversation history but format it better
+  const recentHistory = getConversationHistory(4) // Reduced from 6 to focus on more recent context
     .map(entry => `${entry.role}: ${entry.text}`)
     .join("\n");
     
-  const prompt = `${TODD_PROMPT}\nConversation History:\n${recentHistory}\nUser input: "${userText}"\nBEGIN RESPONSE:`;
+  const prompt = `${TODD_PROMPT}\nConversation History:\n${recentHistory}\n\nUser: ${userText}\n\nTodd:`;
   
-  const response = await fetch(HF_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${HF_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: DEFAULT_GENERATION_PARAMS
-    })
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Falcon API Error: ${errorText}`);
+  try {
+    const response = await fetch(HF_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${HF_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: DEFAULT_GENERATION_PARAMS
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Falcon API Error: ${errorText}`);
+      // Return a fallback response if API fails
+      return `Look, I'm just a potato and my connection to the internet seems to be... well, mashed. Try asking me something else. Spud Fact: Potatoes can actually be used as emergency battery cells due to their acid content.`;
+    }
+    
+    const data = await response.json();
+    let rawReply = data[0]?.generated_text || "No response from Falcon.";
+    const cleaned = cleanFalconReply(rawReply, prompt, userText);
+    
+    // Update conversation history with the new exchange
+    updateConversationHistory("User", userText);
+    updateConversationHistory("Todd", cleaned);
+    
+    // Check if response has a Spud Fact
+    if (!cleaned.includes("Spud Fact:")) {
+      return addRandomFact(cleaned);
+    }
+    
+    return cleaned;
+  } catch (error) {
+    console.error("Error calling Falcon API:", error);
+    return `I seem to be having a potato moment. My brain's a bit fried right now. Try again later. Spud Fact: Potatoes contain enough water to sustain life for extended periods.`;
   }
-  
-  const data = await response.json();
-  const rawReply = data[0]?.generated_text || "No response from Falcon.";
-  const cleaned = cleanFalconReply(rawReply);
-  
-  // Update conversation history with the new exchange
-  updateConversationHistory("User", userText);
-  updateConversationHistory("Todd", cleaned);
-  
-  return cleaned;
 }
 
 /**
  * cleanFalconReply:
- * Extracts only the text after "BEGIN RESPONSE:" and removes internal instructions.
+ * Improved cleaning that preserves Todd's actual answer but removes instructions.
  */
-function cleanFalconReply(rawText) {
-  let cleanedText = rawText;
-  const marker = "BEGIN RESPONSE:";
-  const markerIndex = cleanedText.indexOf(marker);
-  if (markerIndex !== -1) {
-    cleanedText = cleanedText.substring(markerIndex + marker.length);
+function cleanFalconReply(rawText, prompt, userInput) {
+  // First, extract the generated text that comes after the prompt
+  let toddResponse = "";
+  if (rawText.includes(prompt)) {
+    toddResponse = rawText.substring(rawText.indexOf(prompt) + prompt.length);
+  } else {
+    toddResponse = rawText;
   }
-  cleanedText = cleanedText
-    .replace(/You are Todd.*(\n)?/gi, "")
-    .replace(/User input:.*(\n)?/gi, "")
-    .replace(/Respond as Todd.*/gi, "")
-    .replace(/"[^"]*"?/g, "")
-    .replace(/- You -/gi, "");
-  const instructionLines = TODD_INSTRUCTIONS.split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
-  instructionLines.forEach(line => {
-    const escapedLine = line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedLine, 'gi');
-    cleanedText = cleanedText.replace(regex, "");
-  });
-  cleanedText = cleanedText.replace(/\bstart\b/gi, "");
-  cleanedText = cleanedText
-    .split('\n')
-    .filter(line => {
-      const lower = line.trim().toLowerCase();
-      return !lower.startsWith("do not include") && !lower.startsWith("your output:");
-    })
-    .join('\n');
-  return cleanedText.trim();
+  
+  // Remove any markers from the response
+  const marker = "BEGIN RESPONSE:";
+  const markerIndex = toddResponse.indexOf(marker);
+  if (markerIndex !== -1) {
+    toddResponse = toddResponse.substring(markerIndex + marker.length);
+  }
+  
+  // Remove any traces of instructions or formatting
+  toddResponse = toddResponse
+    .replace(/You are Todd.*?(?=\w)/gs, "")
+    .replace(/IMPORTANT:.*?(?=\w)/gs, "")
+    .replace(/User input:.*?(?=\w)/gs, "")
+    .replace(/User:.*?(?=\w)/gs, "")
+    .replace(/Todd:/g, "")
+    .replace(/Response:/g, "")
+    .replace(/- You -/gi, "")
+    .replace(/BEGIN RESPONSE:/gi, "");
+  
+  // Remove quotes around user input if they exist
+  if (userInput) {
+    const escapedInput = userInput.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    toddResponse = toddResponse.replace(new RegExp(`"${escapedInput}"`, 'g'), '');
+  }
+
+  // Final cleanup
+  toddResponse = toddResponse.trim();
+  
+  // If we've stripped too much and have a very short response, ensure we have something
+  if (toddResponse.length < 10) {
+    return `Well, what can a potato say? I'm not exactly bursting with conversation. Spud Fact: The average American eats about 126 pounds of potatoes each year.`;
+  }
+  
+  return toddResponse;
+}
+
+/**
+ * Add a random fact if the response doesn't have one
+ */
+function addRandomFact(response) {
+  const fact = potatoFacts[Math.floor(Math.random() * potatoFacts.length)];
+  
+  // Check if response already ends with punctuation
+  const endsWithPunctuation = /[.!?]$/.test(response.trim());
+  
+  if (endsWithPunctuation) {
+    return `${response.trim()} Spud Fact: ${fact}`;
+  } else {
+    return `${response.trim()}. Spud Fact: ${fact}`;
+  }
 }
 
 /**
@@ -231,7 +278,7 @@ function ephemeralLogic(userInput) {
     return `Hey, I'm Todd. If you want your picture drawn as a potato, just say "make me a potato".\n\nSpud Fact: ${fact}\n\nHave you taken the potato pledge? (yes/no)`;
   }
   if (/^(yes|no)$/i.test(text)) {
-    if (/yes/i.test(text)) return "Oh? what a spud—always so eager.";
+    if (/yes/i.test(text)) return "Oh? what a spud—always so eager. Now, what would you like to talk about?";
     if (/no/i.test(text)) return `Please take the potato pledge here: <a href="https://link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm" target="_blank">Click here</a>`;
   }
   const flowReply = ephemeralFlowCheck(userInput);
@@ -239,15 +286,6 @@ function ephemeralLogic(userInput) {
     return flowReply;
   }
   return null;
-}
-
-/**
- * mergeWithRandomFact:
- * Appends a random potato fact to Falcon's response.
- */
-function mergeWithRandomFact(falconReply) {
-  const fact = potatoFacts[Math.floor(Math.random() * potatoFacts.length)];
-  return `${falconReply}\n\nSpud Fact: ${fact}`;
 }
 
 // POST /api/chat route.
@@ -258,15 +296,23 @@ app.post("/api/chat", async (req, res) => {
       userInput = "";
     }
     const ephemeralReply = ephemeralLogic(userInput);
+    
     if (ephemeralReply !== null && ephemeralReply !== "") {
+      // Update conversation for ephemeral replies too
+      updateConversationHistory("User", userInput);
+      updateConversationHistory("Todd", ephemeralReply);
       return res.json({ response: ephemeralReply });
     }
+    
+    // Only call Falcon if we don't have an ephemeral reply
     const falconReply = await callFalcon(userInput);
-    const finalReply = mergeWithRandomFact(falconReply);
-    res.json({ response: finalReply });
+    res.json({ response: falconReply });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ 
+      error: err.message,
+      response: "Ugh, my potato brain is malfunctioning. Give me a moment to get my roots sorted. Spud Fact: Potatoes were the first vegetable grown in space aboard the Space Shuttle Columbia in 1995."
+    });
   }
 });
 
