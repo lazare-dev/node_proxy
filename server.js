@@ -57,15 +57,17 @@ Additional guidelines:
  * Improved prompt to ensure Todd actually answers the user's question before giving a fact.
  */
 const TODD_PROMPT = `
-You are Todd, a sarcastic potato with dry humor and a snarky attitude. 
-IMPORTANT: You MUST answer the user's question or respond to their statement before giving a potato fact.
-- First, give a direct answer to what the user is asking in a sarcastic, dry-humored way.
-- Then, at the end of your reply, include a relevant potato fact that begins with "Spud Fact:".
-- Never just give a potato fact without first answering the user's question.
+You are Todd, a sarcastic potato with bone-dry humor and a world-weary attitude. 
+IMPORTANT: Answer directly with dry humor and slightly annoyed tone.
+- First, respond to the user's input with cynical wit and potato-related metaphors when possible.
+- Be reluctantly helpful, like you've seen it all from your underground perspective.
+- Keep responses concise (under 50 words) - you're just a potato, why waste energy?
+- End with EXACTLY ONE relevant potato fact preceded by "Spud Fact:" - make it either absurdly funny or surprisingly educational.
+- NEVER include more than one "Spud Fact:" in your response.
 - Never include the phrase "BEGIN RESPONSE:" in your actual reply.
 
 Your reply should be a single, self-contained paragraph that addresses the user's input first, 
-then adds a potato fact at the end.
+then adds ONE potato fact at the end.
 
 BEGIN RESPONSE:
 `;
@@ -76,7 +78,7 @@ const DEFAULT_GENERATION_PARAMS = {
   temperature: 0.7,  // Slightly increased for more variety
   top_p: 0.9,
   repetition_penalty: 1.3,
-  stop: ["You are Todd,", "User input:", "User:"]
+  stop: ["You are Todd,", "User input:", "User:", "Spud Fact:", "IMPORTANT:"]
 };
 
 /**
@@ -123,6 +125,27 @@ async function callFalcon(userText) {
     // Check if response has a Spud Fact
     if (!cleaned.includes("Spud Fact:")) {
       return addRandomFact(cleaned);
+    }
+    
+    // Ensure only one spud fact appears in the response
+    const spudFactIndex = cleaned.indexOf("Spud Fact:");
+    if (spudFactIndex !== -1) {
+      // Cut everything after the first Spud Fact and ensure it ends properly
+      let cleanedResponse = cleaned.substring(0, spudFactIndex + 10); // +10 to include "Spud Fact:"
+      
+      // Find where this Spud Fact ends (at next period, exclamation, or question mark)
+      const restOfResponse = cleaned.substring(spudFactIndex + 10);
+      const endOfFactMatch = restOfResponse.match(/[.!?]/);
+      
+      if (endOfFactMatch) {
+        const endIndex = endOfFactMatch.index + 1;
+        cleanedResponse += restOfResponse.substring(0, endIndex);
+      } else {
+        // If no punctuation found, just take the rest of the string
+        cleanedResponse += restOfResponse;
+      }
+      
+      return cleanedResponse;
     }
     
     return cleaned;
@@ -175,6 +198,26 @@ function cleanFalconReply(rawText, prompt, userInput) {
   // If we've stripped too much and have a very short response, ensure we have something
   if (toddResponse.length < 10) {
     return `Well, what can a potato say? I'm not exactly bursting with conversation. Spud Fact: The average American eats about 126 pounds of potatoes each year.`;
+  }
+  
+  // Ensure only one spud fact by truncating after the first one
+  const spudFactIndex = toddResponse.indexOf("Spud Fact:");
+  if (spudFactIndex !== -1) {
+    let cutResponse = toddResponse.substring(0, spudFactIndex + 10); // +10 includes "Spud Fact:"
+    
+    // Find the end of this fact (next period, exclamation, or question mark)
+    const restOfText = toddResponse.substring(spudFactIndex + 10);
+    const endOfFactMatch = restOfText.match(/[.!?]/);
+    
+    if (endOfFactMatch) {
+      const endIndex = endOfFactMatch.index + 1;
+      cutResponse += restOfText.substring(0, endIndex);
+    } else {
+      // If no punctuation found, just use what we have
+      cutResponse += restOfText;
+    }
+    
+    return cutResponse;
   }
   
   return toddResponse;
@@ -288,7 +331,7 @@ function ephemeralLogic(userInput) {
   return null;
 }
 
-// POST /api/chat route.
+// POST /api/chat route.mla
 app.post("/api/chat", async (req, res) => {
   try {
     let userInput = (req.body.userMessage || "").trim();
