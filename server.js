@@ -220,17 +220,41 @@ const potatoQuestions = [
 function ephemeralFlowCheck(userInput) {
   const text = userInput.toLowerCase().trim();
   
-  // Reset state if it's corrupted (we're in askingPotato state but the input doesn't match a portrait command)
-  if (ephemeralState.state === "askingPotato" && 
-      !isPictureCommand(text) && 
-      ephemeralState.questionIndex <= 0) {
-    console.log("Resetting corrupted state");
-    ephemeralState.state = "idle";
-    ephemeralState.questionIndex = 0;
-    ephemeralState.answers = {};
+  // Log current state at the beginning 
+  console.log(`Current portrait flow state: ${ephemeralState.state}, question index: ${ephemeralState.questionIndex}`);
+  
+  // If we're in portrait mode, save the answer and continue regardless of input content
+  if (ephemeralState.state === "askingPotato") {
+    // If the question index is invalid, reset state
+    if (ephemeralState.questionIndex < 0 || ephemeralState.questionIndex >= potatoQuestions.length) {
+      console.log("Invalid question index, resetting state");
+      ephemeralState.state = "idle";
+      return null;
+    }
+    
+    // Save the current answer
+    const currentQ = potatoQuestions[ephemeralState.questionIndex];
+    ephemeralState.answers[currentQ.key] = userInput;
+    console.log(`Saved answer for ${currentQ.key}: ${userInput}`);
+    
+    // Move to next question
+    ephemeralState.questionIndex++;
+    console.log(`Moving to question index: ${ephemeralState.questionIndex}`);
+    
+    // If there are more questions, ask the next one
+    if (ephemeralState.questionIndex < potatoQuestions.length) {
+      const nextQuestion = potatoQuestions[ephemeralState.questionIndex].text;
+      console.log(`Asking next question: ${nextQuestion}`);
+      return nextQuestion;
+    } else {
+      // Finished all questions, generate portrait
+      console.log("Finished all questions, generating portrait");
+      ephemeralState.state = "idle";
+      return finalizePotatoPortrait();
+    }
   }
   
-  // Normal flow
+  // Start the portrait flow if this is a picture command
   if (ephemeralState.state === "idle" && isPictureCommand(text)) {
     console.log("Starting potato portrait flow");
     ephemeralState.state = "askingPotato";
@@ -239,27 +263,7 @@ function ephemeralFlowCheck(userInput) {
     return potatoQuestions[0].text;
   }
   
-  if (ephemeralState.state === "askingPotato") {
-    console.log(`Processing portrait question ${ephemeralState.questionIndex}`);
-    // Safety check - if the question index is invalid, reset state
-    if (ephemeralState.questionIndex < 0 || ephemeralState.questionIndex >= potatoQuestions.length) {
-      console.log("Invalid question index, resetting state");
-      ephemeralState.state = "idle";
-      return null;
-    }
-    
-    const currentQ = potatoQuestions[ephemeralState.questionIndex];
-    ephemeralState.answers[currentQ.key] = userInput;
-    ephemeralState.questionIndex++;
-    
-    if (ephemeralState.questionIndex < potatoQuestions.length) {
-      return potatoQuestions[ephemeralState.questionIndex].text;
-    } else {
-      ephemeralState.state = "idle";
-      return finalizePotatoPortrait();
-    }
-  }
-  
+  // If we're not in portrait mode and this isn't a picture command, return null
   return null;
 }
 
@@ -269,6 +273,8 @@ function ephemeralFlowCheck(userInput) {
  */
 function finalizePotatoPortrait() {
   const { feminineOrMasculine, hairColor, eyeColor, height } = ephemeralState.answers;
+  console.log("Creating portrait with answers:", ephemeralState.answers);
+  
   let imageLink = "";
   if (feminineOrMasculine && /mascul|man|male|boy/i.test(feminineOrMasculine)) {
     imageLink = "https://storage.googleapis.com/msgsndr/SCPz31dkICCBwc0kwRoe/media/67cdb5fc3d108845a2d88ee5.jpeg";
@@ -313,6 +319,12 @@ function ephemeralLogic(userInput) {
     return `I'm Todd. A potato. Yes, a talking potato. Don't act like you've never seen one before. If you want to see yourself as a potato (though I can't imagine why), just say "make me a potato."\n\nSpud Fact: ${fact}\n\nHave you taken the potato pledge? (yes/no) Not that I really care either way.`;
   }
   
+  // Check for portrait flow responses first - this needs to come before yes/no handling
+  const flowReply = ephemeralFlowCheck(userInput);
+  if (flowReply) {
+    return flowReply;
+  }
+  
   // Handle "yes" or "no" plus variations like "no i havent", "nope", etc.
   if (/^(yes|yeah|yep|yup|sure|ok|okay)/i.test(text)) {
     return "Look at you, all eager to pledge allegiance to a vegetable. I'm flattered, I guess. Now, what would you like to talk about? Keep it interesting—I've been underground for months.";
@@ -320,11 +332,6 @@ function ephemeralLogic(userInput) {
   
   if (/^(no|nope|nah|not really|haven'?t|i haven'?t)/i.test(text)) {
     return `Well, that's disappointing. Here I am, bearing my soul to you, and you can't even take a simple potato pledge. Fine, take it here if you ever change your mind: <a href="https://link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm" target="_blank">Click here</a>. Or don't. I'm just a potato, not your life coach.`;
-  }
-  
-  const flowReply = ephemeralFlowCheck(userInput);
-  if (flowReply) {
-    return flowReply;
   }
   
   return null;
