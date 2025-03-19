@@ -85,13 +85,12 @@ Never include the phrase "BEGIN RESPONSE:" in your actual reply.
 
 // Default generation parameters (improved)
 const DEFAULT_GENERATION_PARAMS = {
-  max_new_tokens: 120, // Increased token count for more complete responses
-  temperature: 0.8,  // Slightly increased for more variety and interesting responses
+  max_new_tokens: 120,
+  temperature: 0.8,
   top_p: 0.9,
   repetition_penalty: 1.3,
-  stop: ["You are Todd,", "User input:", "User:", "PERSONALITY:", "RESPONSE STYLE:", "EXAMPLES:"]
+  stop: ["You are Todd,", "User:", "PERSONALITY:", "EXAMPLES:"]
 };
-
 /**
  * callFalcon:
  * Builds a prompt that includes recent conversation history, the current user input,
