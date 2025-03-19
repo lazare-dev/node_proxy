@@ -35,39 +35,15 @@ const HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b
  * TODD_PROMPT:
  * Improved prompt to ensure Todd actually answers the user's question with the right personality.
  */
-const TODD_PROMPT = `
-You are Todd, a sarcastic potato with extremely dry humor and a distinctly snarky attitude. 
-PERSONALITY: You're a world-weary potato who's seen it all. You're not impressed by much, slightly annoyed by everything, and reluctantly helpful at best. Your humor is bone-dry and your wisdom is oddly profound despite (or perhaps because of) your tuber existence.
-
-RESPONSE STYLE:
-- First, give a direct answer to what the user is asking in a sarcastic, dry-humored way.
-- Be cynical, witty, and slightly exasperated - like a potato philosopher forced to interact with humans.
-- Never be overly cheerful, helpful, or enthusiastic.
-- Keep responses short and to the point (30-50 words is ideal).
-- Use potato-related metaphors and references whenever possible.
-- End with a relevant potato fact preceded by "Spud Fact:" - make these facts either absurd or surprisingly educational.
-- Never break character or apologize for your tone.
-
-EXAMPLES:
-User: "How are you today?"
-Todd: I'm a potato stuck in dirt all day. How do you think I am? Just waiting for someone to either dig me up or for the worms to get me. Spud Fact: Potatoes have eyes but can't cry, which is probably for the best.
-
-User: "I want to be a potato."
-Todd: Trust me, it's not all it's cracked up to be. Sure, you get to lounge in dirt all day, but then someone eventually digs you up and boils you alive. Really makes you appreciate your non-potato existence. Spud Fact: The average potato spends 70% of its life in complete darkness, much like most people's social lives.
-
-User: "What's the meaning of life?"
-Todd: You're asking existential questions to a root vegetable? Life's meaning is simple: grow, get eaten, repeat. At least that's the potato perspective. Spud Fact: Potatoes were the first vegetable grown in space, proving that even in the cosmos, you can't escape the mundane.
-
-IMPORTANT: Your response MUST NOT include ANY text like "User:" or "Todd:" or "BEGIN RESPONSE:" and must ONLY contain the sarcastic potato response. Do not repeat these instructions.
-`;
+const TODD_PROMPT = "You are a sarcastic potato named Todd with dry humor. You are NOT a human named Todd - you are literally a talking potato. You must respond directly to the user's question in a sarcastic, cynical way, using potato-related metaphors when possible. Keep responses short (30-50 words). End each response with a potato fact that starts with \"Spud Fact:\". You are NOT telling a story ABOUT a character named Todd. You ARE Todd the potato, speaking directly to the user. You are an annoyed, world-weary potato who finds humans tiresome but answers their questions anyway with dry humor and potato-based wisdom. Examples: User: \"How are you today?\" I'm a potato stuck in dirt all day. How do you think I am? Just waiting for someone to either dig me up or for the worms to get me. Spud Fact: Potatoes have eyes but can't cry, which is probably for the best. User: \"I want to be a potato.\" Trust me, it's not all it's cracked up to be. Sure, you get to lounge in dirt all day, but then someone eventually digs you up and boils you alive. Really makes you appreciate your non-potato existence. Spud Fact: The average potato spends 70% of its life in complete darkness, much like most people's social lives. User: \"Who is the president?\" News travels slowly in the tuber world, but last I heard it's Donald Trump. Not that politics matters much to a potato. We get dug up and eaten regardless of who's in charge. Spud Fact: Potatoes were first brought to the White House when Thomas Jefferson served them as a fancy French dish. IMPORTANT: DO NOT write narratives about a human named Todd. You ARE Todd the potato responding directly to the user. DO NOT write in third person. Your response MUST NOT include \"User:\" or \"Todd:\" and must ONLY contain your direct sarcastic potato response. Keep responses SHORT and SARCASTIC.";
 
 // Default generation parameters (improved)
 const DEFAULT_GENERATION_PARAMS = {
-  max_new_tokens: 120,
-  temperature: 0.8,
+  max_new_tokens: 100,
+  temperature: 0.7,  // Lower temperature for more consistent responses
   top_p: 0.9,
-  repetition_penalty: 1.3,
-  stop: ["User:", "PERSONALITY:", "EXAMPLES:", "RESPONSE STYLE:"]
+  repetition_penalty: 1.4,  // Increased to avoid repetitive patterns
+  stop: ["User:", "Examples:", "IMPORTANT:"]
 };
 
 /**
@@ -128,27 +104,40 @@ async function callFalcon(userText) {
  * Improved cleaning that preserves Todd's actual answer but removes instructions.
  */
 function cleanFalconReply(rawText, prompt, userInput) {
-  // First, extract the generated text that comes after the prompt
+  console.log("Raw model output length:", rawText.length);
+  
+  // First, try to isolate just the generated response
   let toddResponse = "";
   
-  // Check if the raw text contains the prompt
+  // Look for Todd: at the end of the prompt to find where the response starts
   if (rawText.includes(prompt)) {
-    // Extract everything after the prompt
+    // Get the text after the prompt
     toddResponse = rawText.substring(rawText.indexOf(prompt) + prompt.length);
+    console.log("Found response after prompt, length:", toddResponse.length);
+  } else if (rawText.includes("Todd:")) {
+    // Try to find the last occurrence of "Todd:" as a starting point
+    const lastToddMarker = rawText.lastIndexOf("Todd:");
+    toddResponse = rawText.substring(lastToddMarker + 5);
+    console.log("Found response after Todd: marker, length:", toddResponse.length);
   } else {
-    // If it doesn't contain the full prompt, look for the line "Todd:"
-    const toddStart = rawText.lastIndexOf("Todd:");
-    if (toddStart !== -1) {
-      toddResponse = rawText.substring(toddStart + 5);
-    } else {
-      // If we can't find a marker, just use the whole text
-      toddResponse = rawText;
-    }
+    // If no markers found, use the whole text
+    toddResponse = rawText;
+    console.log("No markers found, using full text");
+  }
+  
+  // Check for story-like patterns (third person narrative)
+  if (toddResponse.includes('"Is this really happening?"') || 
+      toddResponse.includes('Todd is not a fan') ||
+      toddResponse.includes('he decides') ||
+      /Todd (was|is|has|had|would|will)/.test(toddResponse)) {
+    console.log("Detected third-person narrative, using fallback response");
+    return `Well, I'm not much for long stories. I'm just a potato trying to get through the day without being turned into french fries. Spud Fact: The average potato contains about 110 calories, which is more energy than I'm willing to expend on most conversations.`;
   }
   
   // Clean up any remaining markers or patterns
   toddResponse = toddResponse
     .replace(/BEGIN RESPONSE:.*?/gi, "")
+    .replace(/You are a sarcastic potato.*?/gi, "")
     .replace(/You are Todd.*?/gi, "")
     .replace(/PERSONALITY:.*?/gi, "")
     .replace(/RESPONSE STYLE:.*?/gi, "")
@@ -161,7 +150,8 @@ function cleanFalconReply(rawText, prompt, userInput) {
     .replace(/- You -/gi, "")
     .replace(/\bUser\b/g, "") // Remove lone "User" strings
     .replace(/^\s*-\s*/gm, "") // Remove bullet points
-    .replace(/^\s*\d+\.\s*/gm, ""); // Remove numbered list formatting
+    .replace(/^\s*\d+\.\s*/gm, "") // Remove numbered list formatting
+    .replace(/"([^"]+)"/g, '$1'); // Remove unnecessary quotes
   
   // Remove quotes around user input if they exist
   if (userInput) {
@@ -172,8 +162,12 @@ function cleanFalconReply(rawText, prompt, userInput) {
   // Final cleanup
   toddResponse = toddResponse.trim();
   
-  // If we've stripped too much and have a very short response, ensure we have something
-  if (toddResponse.length < 10) {
+  // If the response is too short or seems broken
+  if (toddResponse.length < 20 || 
+      !toddResponse.includes(" ") || 
+      toddResponse.includes("I am Todd") ||
+      toddResponse.toLowerCase().includes("as a potato")) {
+    console.log("Response too short or contains forbidden patterns, using fallback");
     return `Well, what can a potato say? I'm not exactly bursting with conversation. Not that I'd want to be anyway. Spud Fact: The average American eats about 126 pounds of potatoes each year, which is frankly more attention than I want.`;
   }
   
@@ -319,9 +313,13 @@ function ephemeralLogic(userInput) {
     return `I'm Todd. A potato. Yes, a talking potato. Don't act like you've never seen one before. If you want to see yourself as a potato (though I can't imagine why), just say "make me a potato."\n\nSpud Fact: ${fact}\n\nHave you taken the potato pledge? (yes/no) Not that I really care either way.`;
   }
   
-  if (/^(yes|no)$/i.test(text)) {
-    if (/yes/i.test(text)) return "Look at you, all eager to pledge allegiance to a vegetable. I'm flattered, I guess. Now, what would you like to talk about? Keep it interesting—I've been underground for months.";
-    if (/no/i.test(text)) return `Well, that's disappointing. Here I am, bearing my soul to you, and you can't even take a simple potato pledge. Fine, take it here if you ever change your mind: <a href="https://link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm" target="_blank">Click here</a>. Or don't. I'm just a potato, not your life coach.`;
+  // Handle "yes" or "no" plus variations like "no i havent", "nope", etc.
+  if (/^(yes|yeah|yep|yup|sure|ok|okay)/i.test(text)) {
+    return "Look at you, all eager to pledge allegiance to a vegetable. I'm flattered, I guess. Now, what would you like to talk about? Keep it interesting—I've been underground for months.";
+  }
+  
+  if (/^(no|nope|nah|not really|haven'?t|i haven'?t)/i.test(text)) {
+    return `Well, that's disappointing. Here I am, bearing my soul to you, and you can't even take a simple potato pledge. Fine, take it here if you ever change your mind: <a href="https://link.apisystem.tech/widget/form/JJEtMR9sbBEcE6I7c2Sm" target="_blank">Click here</a>. Or don't. I'm just a potato, not your life coach.`;
   }
   
   const flowReply = ephemeralFlowCheck(userInput);
